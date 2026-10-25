@@ -36,11 +36,36 @@ inondées.
 Masques : `LabelHand` vaut -1 (pas de donnée, souvent des nuages), 0 (sec) ou
 1 (eau). `JRCWaterHand` marque l'eau permanente.
 
+## Définition de l'alerte
+
+Une image déclenche une alerte si **au moins 5 %** de sa surface annotée est
+inondée, l'eau permanente (JRC) étant exclue (paramètre `SEUIL_ALERTE`,
+notebook 02). 5 images entièrement couvertes de nuages n'ont aucune annotation :
+elles sont comptées comme « pas d'alerte ».
+
 ## Découpage entraînement / validation / test
 
-À définir. Principe : découper par événement (pays) et non au hasard, pour
-évaluer le modèle sur des zones jamais vues et éviter les fuites.
+Découpage **par événement (pays)**, jamais au hasard : une image d'un pays
+n'apparaît que dans une seule partie, ce qui évite les fuites (images voisines
+d'une même inondation) et mesure la généralisation à des zones jamais vues.
+
+| Partie | Pays | Images | Alertes (seuil 5 %) |
+|---|---|---|---|
+| Entraînement | Inde, Mékong, Nigeria, Paraguay, Somalie, USA | 278 | 97 |
+| Validation | Sri Lanka, Pakistan | 70 | 18 |
+| Test | Bolivie, Espagne, Ghana | 98 | 24 |
+
+Choix du test : la Bolivie est l'événement que les auteurs de Sen1Floods11
+gardent eux-mêmes à part ; l'Espagne est le seul événement européen ; le Ghana
+contient beaucoup d'images peu inondées, utiles pour mesurer les fausses alertes.
 
 ## Biais et limites
 
-À compléter.
+- **Peu d'exemples** : 18 alertes en validation et 24 en test. Une ou deux
+  erreurs changent fortement les scores ; les résultats sont à lire avec prudence.
+- **Nuages** : en moyenne 14 % de chaque image est sans annotation. Les nuages
+  cachent l'eau et leurs ombres peuvent ressembler à de l'eau.
+- **Hypothèse embarquée** : la carte d'eau permanente est supposée connue à bord
+  (carte fixe chargée avant le lancement).
+- **Couverture géographique** : 11 événements seulement, aucun en zone froide
+  (neige, glace), qui pourrait tromper un indice d'eau.
