@@ -27,13 +27,23 @@ installe ses dépendances et télécharge les données lui-même.
 
 En local : `pip install -r requirements.txt`
 
+## Résultats
+
+| Modèle | Partie | Précision | Rappel | F1 | Taux de fausses alertes | Temps / image | Taille |
+|---|---|---|---|---|---|---|---|
+| Baseline NDWI (t_ndwi = 0, t_alerte = 3 %) | Validation | 0,714 | 0,556 | 0,625 | 0,077 | 14 ms (CPU Colab) | 2 paramètres |
+| Baseline NDWI | Test | 0,920 | 0,958 | 0,939 | 0,027 | 14 ms | 2 paramètres |
+
+Seuils choisis sur l'entraînement uniquement (F1 = 0,802). Détails et cas
+d'échec dans `notebooks/02_baseline_ndwi.ipynb`.
+
 ## Avancement
 
 - [x] Structure du dépôt
 - [x] Exploration des données (446 images, 11 pays, voir `docs/carnet_donnees.md`)
-- [ ] Définition de l'alerte (ce qui doit et ne doit pas alerter)
-- [ ] Découpage train / validation / test sans fuite
-- [ ] Baseline simple (indice d'eau NDWI + seuil)
+- [x] Définition de l'alerte : au moins 5 % de surface inondée hors eau permanente
+- [x] Découpage train / validation / test par pays
+- [x] Baseline simple (indice d'eau NDWI + seuil)
 - [ ] Modèle léger pré-entraîné
 - [ ] Gestion des fausses alertes et de l'inconnu
 - [ ] Export ONNX, taille et temps d'inférence
