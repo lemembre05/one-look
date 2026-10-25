@@ -30,7 +30,7 @@ En local : `pip install -r requirements.txt`
 ## Avancement
 
 - [x] Structure du dépôt
-- [ ] Exploration des données
+- [x] Exploration des données (446 images, 11 pays, voir `docs/carnet_donnees.md`)
 - [ ] Définition de l'alerte (ce qui doit et ne doit pas alerter)
 - [ ] Découpage train / validation / test sans fuite
 - [ ] Baseline simple (indice d'eau NDWI + seuil)
