@@ -1,0 +1,10 @@
+# Données et modèles (trop lourds pour GitHub)
+data/
+*.tif
+*.pt
+*.pth
+*.onnx
+# Python
+__pycache__/
+.ipynb_checkpoints/
+.venv/
