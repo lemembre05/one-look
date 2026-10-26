@@ -48,6 +48,31 @@ test = Bolivie + Espagne + Ghana (24 alertes sur 98 images).
 
 Détails : `notebooks/02_baseline_ndwi.ipynb` et `notebooks/03_reseaux_legers.ipynb`.
 
+### Ablation du petit U-Net (notebook 04)
+
+Même graine, même recette ; seuls changent les bandes d'entrée et la durée d'entraînement.
+
+| Expérience | Bandes | Époques | IoU eau val. | F1 val. | Fausses alertes val. | IoU eau test | F1 test | IoU eau, images nuageuses (val. + test) |
+|---|---|---|---|---|---|---|---|---|
+| A | Sentinel-2 (13) | 30 | 0,788 | 0,686 | 9,6 % | 0,792 | 0,913 | 0,637 |
+| B | Sentinel-2 (13) | 60 | 0,803 | 0,727 | 5,8 % | 0,793 | 0,909 | 0,647 |
+| C | Sentinel-2 + radar Sentinel-1 (15) | 30 | **0,828** | 0,727 | 5,8 % | **0,797** | 0,894 | **0,688** |
+
+Taille identique pour les trois (1,9 Mo ; le radar ajoute 288 paramètres), environ 0,5 s par image
+sur un cœur de CPU.
+
+- **Entraîner deux fois plus longtemps (B) n'apporte presque rien** : +0,015 d'IoU en validation,
+  rien en test. Le temps d'entraînement n'était pas la limite.
+- **Le radar (C) améliore les cartes d'eau partout**, surtout sous les nuages (+0,05 d'IoU sur les
+  58 images nuageuses). Sur Ghana_866994 (40 % inondé sous les nuages), la part d'eau détectée
+  passe de 2,4 % à 7,5 % : l'alerte se déclenche enfin.
+- **Le F1 bouge peu et de façon bruitée** : la même configuration A donne un F1 de validation de
+  0,727 dans le notebook 03 et 0,686 ici (variabilité d'un entraînement sur GPU à l'autre).
+  Avec 18 alertes, l'IoU par pixel est la mesure fiable pour comparer.
+- **Limite du radar pour l'embarqué** : Sentinel-1 et Sentinel-2 sont deux satellites différents.
+  Le modèle C suppose qu'une image radar récente de la même zone est disponible (traitement au sol,
+  ou constellation qui partage ses données). Pour un satellite optique seul, c'est le modèle A ou B.
+
 ## Avancement
 
 - [x] Structure du dépôt
@@ -56,6 +81,7 @@ Détails : `notebooks/02_baseline_ndwi.ipynb` et `notebooks/03_reseaux_legers.ip
 - [x] Découpage train / validation / test par pays
 - [x] Baseline simple (indice d'eau NDWI + seuil)
 - [x] Réseaux légers : petit U-Net et U-Net MobileNetV2 pré-entraîné
+- [x] Ablation : entraînement plus long et ajout du radar Sentinel-1
 - [ ] Gestion des fausses alertes et de l'inconnu
 - [ ] Export ONNX, taille et temps d'inférence
 - [ ] Démonstration
