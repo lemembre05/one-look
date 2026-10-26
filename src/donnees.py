@@ -19,10 +19,11 @@ PAYS_TEST = ["Bolivia", "Spain", "Ghana"]
 PAYS_VALIDATION = ["Sri-Lanka", "Pakistan"]
 
 
-def telecharger(dossier_data="data"):
-    """Télécharge les images Sentinel-2, les masques d'eau et l'eau permanente (une seule fois)."""
+def telecharger(dossier_data="data", radar=False):
+    """Télécharge les images Sentinel-2, les masques d'eau et l'eau permanente (une seule fois).
+    Avec radar=True, télécharge aussi les images radar Sentinel-1 (dossier S1Hand)."""
     os.makedirs(dossier_data, exist_ok=True)
-    for nom in DOSSIERS:
+    for nom in DOSSIERS + (["S1Hand"] if radar else []):
         if not os.path.isdir(os.path.join(dossier_data, nom)):
             subprocess.run(["gsutil", "-m", "-q", "cp", "-r", f"{BUCKET}/{nom}", dossier_data + "/"], check=True)
     return liste_images(dossier_data)
@@ -64,6 +65,16 @@ def lire_image(nom, dossier_data="data"):
     label = _lire(os.path.join(dossier_data, "LabelHand", f"{nom}_LabelHand.tif"))[0]
     perm = _lire(os.path.join(dossier_data, "JRCWaterHand", f"{nom}_JRCWaterHand.tif"))[0] == 1
     return s2, label, perm
+
+
+def lire_radar(nom, dossier_data="data"):
+    """Radar Sentinel-1, forme (2, H, W) : polarisations VV et VH, en décibels.
+
+    Le radar traverse les nuages ; l'eau calme renvoie peu de signal et apparaît très sombre
+    (environ -20 dB et moins). Les pixels sans donnée (NaN) sont mis à -50 dB.
+    """
+    s1 = _lire(os.path.join(dossier_data, "S1Hand", f"{nom}_S1Hand.tif"))
+    return np.clip(np.nan_to_num(s1, nan=-50.0, posinf=5.0, neginf=-50.0), -50.0, 5.0)
 
 
 def ndwi(s2):
