@@ -6,6 +6,12 @@
 |---|---|---|---|
 | Sen1Floods11 (v1.1), sous-ensemble annoté à la main | Images Sentinel-1 et Sentinel-2 (512 x 512 px, 10 m) de 11 inondations, masques d'eau annotés, masques d'eau permanente (JRC) | CC BY 4.0 | `gs://sen1floods11` (bucket public Google Cloud) |
 
+Bandes utilisées :
+- **Sentinel-2** (`S2Hand`) : 13 bandes optiques, réflectances en entiers 16 bits.
+- **Sentinel-1** (`S1Hand`, à partir du notebook 04) : radar, polarisations VV et VH en dB.
+  Les pixels sans donnée (NaN) sont remplacés par -50 dB. Moyennes sur l'entraînement :
+  VV -10,7 dB, VH -17,5 dB.
+
 Référence : Bonafilia, D., Tellman, B., Anderson, T., Issenberg, E. (2020).
 Sen1Floods11: a georeferenced dataset to train and test deep learning flood
 algorithms for Sentinel-1. CVPR Workshops.
@@ -67,5 +73,9 @@ contient beaucoup d'images peu inondées, utiles pour mesurer les fausses alerte
   cachent l'eau et leurs ombres peuvent ressembler à de l'eau.
 - **Hypothèse embarquée** : la carte d'eau permanente est supposée connue à bord
   (carte fixe chargée avant le lancement).
+- **Radar et optique non simultanés** : dans Sen1Floods11, les images Sentinel-1 et Sentinel-2
+  d'une même zone sont prises par deux satellites différents, à des dates proches mais pas
+  forcément le même jour.
+  Un modèle qui combine les deux ne peut pas tourner à bord d'un seul satellite optique.
 - **Couverture géographique** : 11 événements seulement, aucun en zone froide
   (neige, glace), qui pourrait tromper un indice d'eau.
