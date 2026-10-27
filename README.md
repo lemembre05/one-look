@@ -9,8 +9,10 @@ déclencher de fausses alertes.
 ## Structure
 
 - `notebooks/` : exploration, entraînement, évaluation (Google Colab)
-- `src/` : code réutilisable (chargement des données, modèles)
+- `src/` : code réutilisable (données, modèles, entraînement, export embarqué, décision, démo)
 - `docs/` : carnet de données (sources, licences, biais, limites)
+- `modeles/` : modèle final embarqué (ONNX 8 bits et 32 bits) et seuils de décision (`config.json`)
+- `app/` : application de démonstration (Gradio)
 - `data/` : données locales, non versionnées
 
 ## Données
@@ -25,7 +27,8 @@ Détails dans `docs/carnet_donnees.md`.
 Ouvrir `notebooks/01_exploration.ipynb` dans Google Colab : le notebook
 installe ses dépendances et télécharge les données lui-même.
 
-En local : `pip install -r requirements.txt`
+Pour la démonstration seule : `notebooks/06_demo.ipynb` (environ 2 minutes, sans GPU), ou en local
+`pip install -r requirements.txt` puis `python app/app.py`.
 
 ## Résultats
 
@@ -76,18 +79,38 @@ sur un cœur de CPU.
 ## Modèle final embarqué (notebook 05)
 
 Choix : **petit U-Net, Sentinel-2 seul, 60 époques** (expérience B). Le radar améliore les cartes
-d'eau mais suppose un second satellite ; il reste une perspective. Meilleure époque : 41
-(IoU de validation 0,822).
+d'eau mais suppose un second satellite ; il reste une perspective.
+
+### Reproductibilité et choix de la graine
+
+Deux premiers entraînements identiques sur le papier avaient donné des IoU de validation de 0,822
+et 0,809 : les poids de départ du réseau étaient tirés sans graine. Tout est maintenant fixé
+(poids de départ, découpes, cuDNN déterministe) et trois graines sont entraînées ; on garde la
+meilleure **sur la validation** (le test ne sert pas au choix).
+
+| Graine | Meilleure époque | IoU validation | IoU test |
+|---|---|---|---|
+| 0 | 35 | 0,807 | 0,780 |
+| **1 (retenue)** | 18 | **0,824** | 0,788 |
+| 2 | 37 | 0,823 | 0,801 |
+| Moyenne ± écart-type | | 0,818 ± 0,010 | 0,790 ± 0,011 |
+
+D'une graine à l'autre, l'IoU varie d'environ ±0,01 : c'est l'ordre de grandeur des écarts entre
+modèles dans les tableaux précédents, qu'il faut donc lire avec prudence.
+
+### Versions du modèle retenu
 
 | Version | Taille | Temps / image 512×512 (1 cœur CPU) | IoU val. | IoU test | F1 val. | F1 test | Fausses alertes val. | Fausses alertes test |
 |---|---|---|---|---|---|---|---|---|
-| PyTorch FP32 | 1,9 Mo | 491 ms | 0,822 | 0,796 | 0,833 | 0,875 | 5,8 % | 4,1 % |
-| ONNX FP32 | 1,94 Mo | 239 ms | 0,822 | 0,796 | 0,833 | 0,875 | 5,8 % | 4,1 % |
-| **ONNX INT8** (embarqué) | **0,66 Mo** | 250 ms | 0,819 | 0,795 | 0,833 | 0,875 | 5,8 % | 4,1 % |
+| PyTorch FP32 | 1,94 Mo | 435 ms | 0,824 | 0,788 | 0,857 | 0,880 | 11,5 % | 5,4 % |
+| ONNX FP32 | 1,94 Mo | 226 ms | 0,824 | 0,788 | 0,857 | 0,880 | 11,5 % | 5,4 % |
+| **ONNX INT8** (embarqué) | **0,66 Mo** | 235 ms | 0,821 | 0,789 | 0,878 | 0,880 | 9,6 % | 5,4 % |
 
-- La compression en 8 bits divise la taille par 3 **sans changer une seule décision d'alerte**.
+- La compression en 8 bits divise la taille par 3 sans dégrader les alertes.
 - ONNX Runtime est 2 fois plus rapide que PyTorch ; le 8 bits n'accélère pas sur le CPU de Colab
   (il le ferait sur un processeur doté d'instructions entières dédiées).
+- Seuil d'alerte choisi sur l'entraînement : 3 % d'eau détectée (l'alerte « vraie » reste définie
+  à 5 % d'eau annotée).
 
 ### Savoir dire « je ne sais pas »
 
@@ -97,25 +120,55 @@ sont calculés à bord, sans annotation ; leurs seuils sont fixés sur l'entraî
 
 | Partie | Décision | ALERTE | PAS D'ALERTE | INCERTAIN | Couverture | Précision | Rappel | Inondations manquées sans prévenir |
 |---|---|---|---|---|---|---|---|---|
-| Validation | 2 issues | 18 | 52 | 0 | 100 % | 0,833 | 0,833 | 3 |
-| Validation | 4 issues | 18 | 39 | 13 | 81 % | 0,833 | 0,833 | 3 |
-| Test | 2 issues | 24 | 74 | 0 | 100 % | 0,875 | 0,875 | 3 |
-| Test | 4 issues | 24 | 60 | 14 | 86 % | 0,875 | 0,913 | 2 |
+| Validation | 2 issues | 23 | 47 | 0 | 100 % | 0,783 | 1,000 | 0 |
+| Validation | 4 issues | 23 | 35 | 12 | 83 % | 0,783 | 1,000 | 0 |
+| Test | 2 issues | 26 | 72 | 0 | 100 % | 0,846 | 0,917 | 2 |
+| Test | 4 issues | 26 | 57 | 15 | 85 % | 0,846 | 0,917 | 2 |
 
-Seuil de nuages (validation + test) : sans contrôle, 6 inondations manquées sans prévenir ;
-à 30 % de nuages, 5 (couverture 84 %) ; à 10 %, 4 (couverture 75 %). C'est un compromis
-entre fiabilité et nombre d'images exploitées.
+- Validation : **aucune inondation manquée**. Test : 2 manquées sur 24.
+- Avec ce modèle, les 2 inondations manquées du test ne sont pas sous les nuages : la case
+  INCERTAIN ne les rattrape pas. Elle évite en revanche d'affirmer « pas d'inondation » sur
+  15 images où le sol est mal visible.
 
-**Images anormales** (3 images de validation × 4 transformations : capteur saturé, bandes
-infrarouges perdues, neige simulée, bruit) : **12 sur 12 classées INCONNU**, les originales
-gardent leur décision. Détecteur : écart de la réflectance moyenne de chaque bande à
-l'entraînement (seuil = 1,2 × 99e centile) et contrôle des bandes mortes.
+**Images anormales** (notebook 05 : 3 images de validation × 4 transformations ; notebook 06 :
+une image de test × 3 transformations) : **toutes classées INCONNU**, les originales gardent
+leur décision. Détecteur : écart de la réflectance moyenne de chaque bande à l'entraînement
+(seuil = 1,2 × 99e centile), contrôle des bandes mortes et contrôle de saturation.
 
-Analyse d'un échec corrigé : la première version fixait le seuil sur le *maximum* des scores
-d'entraînement (7,6, une seule image atypique), soit un seuil de 9,2 : un capteur saturé
-(score 8,5) et des bandes perdues (score 4,5) déclenchaient de fausses ALERTES. Corrections :
-seuil au 99e centile (seuil 5,9), contrôle des bandes mortes, et exclusion d'une image
-d'entraînement entièrement vide (Paraguay_34417) qui faussait ce contrôle.
+## Démonstration (notebook 06)
+
+Le système complet tel qu'il tournerait à bord : `modeles/one_look_int8.onnx` (0,66 Mo) et
+`modeles/config.json`, sans PyTorch ni GPU. Images de pays jamais vus à l'entraînement :
+
+| Image | Décision | Eau détectée | Inondé (annotation) | Nuages | Verdict |
+|---|---|---|---|---|---|
+| Bolivia_103757 | ALERTE | 37,8 % | 40,1 % | 3 % | juste |
+| Bolivia_360519 | PAS D'ALERTE | 1,0 % | 1,1 % | 1 % | juste |
+| Spain_7370579 | ALERTE | 32,1 % | 26,7 % | 1 % | juste |
+| Ghana_313799 | PAS D'ALERTE | 2,6 % | 6,1 % | 1 % | **manquée** (cas limite) |
+| Ghana_866994 | ALERTE | 3,6 % | 40,0 % | 52 % | juste, de justesse |
+| Ghana_26376 | INCERTAIN | 0,0 % | non annotée | 81 % | juste : image presque entièrement nuageuse |
+
+Environ 220 ms par image sur un cœur de processeur. Une application Gradio (`app/app.py`) permet
+de déposer n'importe quelle image Sentinel-2 à 13 bandes et de simuler des pannes.
+
+## Analyse des échecs
+
+- **Seuil d'inconnu trop permissif (corrigé).** La première version fixait le seuil sur le
+  *maximum* des scores d'entraînement (7,6, une seule image atypique), soit un seuil de 9,2 : un
+  capteur saturé (score 8,5) et des bandes perdues (score 4,5) déclenchaient de fausses ALERTES.
+  Corrections : seuil au 99e centile (5,9), contrôle des bandes mortes, et exclusion d'une image
+  d'entraînement entièrement vide (Paraguay_34417) qui faussait ce contrôle.
+- **Erreur de gain sur une scène sombre (corrigé).** Dans la démo, Bolivia_103757 (scène très
+  inondée, donc sombre) multipliée par 3 gardait un score d'inconnu de 5,3 et déclenchait une
+  ALERTE. Règle physique ajoutée : plus de 2 % des pixels avec une réflectance ≥ 1 → INCONNU.
+  Sur les 446 vraies images, cette part ne dépasse jamais 0,9 % ; sur Bolivia ×3 elle est de 24 %.
+- **Inondations faibles (non corrigé).** Ghana_313799 (6,1 % inondé, 2,6 % détecté) est juste
+  sous le seuil : les petites inondations dispersées restent le point faible.
+- **Nuages (limite).** Sous 52 % de nuages, Ghana_866994 ne montre que 3,6 % d'eau pour 40 %
+  réels : l'alerte passe de justesse. Le radar Sentinel-1 (expérience C) est la piste naturelle.
+- **Variabilité de l'entraînement.** ±0,01 d'IoU d'une graine à l'autre : avec 18 à 24 alertes
+  par partie, une ou deux images changent nettement le F1.
 
 ## Avancement
 
@@ -128,4 +181,4 @@ d'entraînement entièrement vide (Paraguay_34417) qui faussait ce contrôle.
 - [x] Ablation : entraînement plus long et ajout du radar Sentinel-1
 - [x] Gestion des fausses alertes et de l'inconnu
 - [x] Export ONNX, compression 8 bits, taille et temps d'inférence
-- [ ] Démonstration
+- [x] Démonstration sur des images inconnues (notebook 06 et application Gradio)
