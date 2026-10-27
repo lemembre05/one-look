@@ -60,11 +60,13 @@ class DetecteurInconnu:
     Contrôle supplémentaire, « bande morte » : si une bande normalement lumineuse (moyenne
     d'entraînement >= 500) tombe sous la moitié de la plus petite valeur jamais vue à
     l'entraînement pour cette bande, le capteur est jugé défaillant (score SCORE_BANDE_MORTE).
+    Une image entièrement vide (aucun pixel vu) est donc aussi déclarée inconnue.
     """
 
     def __init__(self, signatures_entrainement, marge=1.2, centile=0.99,
                  min_bande_controlee=500.0, part_bande_morte=0.5):
         sig = np.asarray(signatures_entrainement, dtype=np.float64)
+        sig = sig[sig.max(axis=1) > 0]  # images sans aucun pixel vu : rien à apprendre
         self.moyenne = sig.mean(axis=0)
         self.ecart = sig.std(axis=0) + 1e-6
         self.minimum = sig.min(axis=0)
