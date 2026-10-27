@@ -5,9 +5,9 @@
  "seuil_probabilite_eau": 0.5,
  "definition_alerte": "au moins 5% de l'image inondee hors eau permanente",
  "seuils_decision": {
-  "alerte": 0.05,
+  "alerte": 0.03,
   "nuages": 0.3,
-  "ambiguite": 0.0549,
+  "ambiguite": 0.1286,
   "inconnu": 5.876
  },
  "seuil_bleu_nuage": 2000,
