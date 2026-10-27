@@ -45,29 +45,52 @@ def signature(s2):
     return s2[:, vu].mean(axis=1)
 
 
+SCORE_BANDE_MORTE = 999.0
+
+
 class DetecteurInconnu:
     """Repère les images très différentes de l'entraînement (hors distribution).
 
     Score = plus grand écart, en nombre d'écarts-types, entre la réflectance moyenne d'une bande
     et ce qui a été vu à l'entraînement. Une image est « inconnue » si son score dépasse de
-    `marge` (20 % par défaut) le score le plus élevé observé sur les images d'entraînement.
+    `marge` (20 % par défaut) le 99e centile des scores des images d'entraînement. Le centile,
+    plutôt que le maximum, évite qu'une seule image d'entraînement atypique rende le seuil trop
+    permissif.
+
+    Contrôle supplémentaire, « bande morte » : si une bande normalement lumineuse (moyenne
+    d'entraînement >= 500) tombe sous la moitié de la plus petite valeur jamais vue à
+    l'entraînement pour cette bande, le capteur est jugé défaillant (score SCORE_BANDE_MORTE).
     """
 
-    def __init__(self, signatures_entrainement, marge=1.2):
+    def __init__(self, signatures_entrainement, marge=1.2, centile=0.99,
+                 min_bande_controlee=500.0, part_bande_morte=0.5):
         sig = np.asarray(signatures_entrainement, dtype=np.float64)
         self.moyenne = sig.mean(axis=0)
         self.ecart = sig.std(axis=0) + 1e-6
-        self.seuil = marge * max(self.score_signature(s) for s in sig)
+        self.minimum = sig.min(axis=0)
+        self.min_bande_controlee = min_bande_controlee
+        self.part_bande_morte = part_bande_morte
+        scores = [self.ecart_max(s) for s in sig]
+        self.seuil = float(marge * np.quantile(scores, centile))
+
+    def ecart_max(self, sig):
+        return float(np.max(np.abs((np.asarray(sig) - self.moyenne) / self.ecart)))
+
+    def bande_morte(self, sig):
+        c = self.moyenne >= self.min_bande_controlee
+        return bool(np.any(np.asarray(sig)[c] < self.part_bande_morte * self.minimum[c]))
 
     def score_signature(self, sig):
-        return float(np.max(np.abs((np.asarray(sig) - self.moyenne) / self.ecart)))
+        return SCORE_BANDE_MORTE if self.bande_morte(sig) else self.ecart_max(sig)
 
     def score(self, s2):
         return self.score_signature(signature(s2))
 
     def config(self):
         return {"moyenne": self.moyenne.round(2).tolist(), "ecart": self.ecart.round(2).tolist(),
-                "seuil": round(self.seuil, 3)}
+                "minimum": self.minimum.round(2).tolist(), "seuil": round(self.seuil, 3),
+                "min_bande_controlee": self.min_bande_controlee,
+                "part_bande_morte": self.part_bande_morte, "score_bande_morte": SCORE_BANDE_MORTE}
 
 
 def decider(part_eau, nuages, amb, score_inconnu, seuils):
