@@ -47,6 +47,18 @@ def signature(s2):
 
 SCORE_BANDE_MORTE = 999.0
 
+# Saturation : une réflectance L1C >= 10000 (réflectance >= 1) est physiquement très rare pour un
+# sol. Sur les 446 images de Sen1Floods11, au plus 0,9 % des pixels y arrivent ; au-delà de 2 %,
+# le capteur est jugé saturé ou mal étalonné.
+SEUIL_SATURATION = 10000
+PART_SATUREE_MAX = 0.02
+
+
+def part_saturee(s2, seuil=SEUIL_SATURATION):
+    """Part des pixels vus dont au moins une bande visible / proche infrarouge (B1 à B9) est saturée."""
+    vu = s2.max(axis=0) > 0
+    return float(((s2[:10] >= seuil).any(axis=0) & vu).sum() / max(vu.sum(), 1))
+
 
 class DetecteurInconnu:
     """Repère les images très différentes de l'entraînement (hors distribution).
@@ -61,6 +73,10 @@ class DetecteurInconnu:
     d'entraînement >= 500) tombe sous la moitié de la plus petite valeur jamais vue à
     l'entraînement pour cette bande, le capteur est jugé défaillant (score SCORE_BANDE_MORTE).
     Une image entièrement vide (aucun pixel vu) est donc aussi déclarée inconnue.
+
+    Contrôle « saturation » : plus de PART_SATUREE_MAX des pixels avec une réflectance >= 1
+    (score SCORE_BANDE_MORTE). Il rattrape les erreurs de gain sur les scènes sombres, que la
+    réflectance moyenne seule ne suffit pas à repérer.
     """
 
     def __init__(self, signatures_entrainement, marge=1.2, centile=0.99,
@@ -86,6 +102,8 @@ class DetecteurInconnu:
         return SCORE_BANDE_MORTE if self.bande_morte(sig) else self.ecart_max(sig)
 
     def score(self, s2):
+        if part_saturee(s2) > PART_SATUREE_MAX:
+            return SCORE_BANDE_MORTE
         return self.score_signature(signature(s2))
 
     @classmethod
@@ -102,7 +120,8 @@ class DetecteurInconnu:
         return {"moyenne": self.moyenne.round(2).tolist(), "ecart": self.ecart.round(2).tolist(),
                 "minimum": self.minimum.round(2).tolist(), "seuil": round(self.seuil, 3),
                 "min_bande_controlee": self.min_bande_controlee,
-                "part_bande_morte": self.part_bande_morte, "score_bande_morte": SCORE_BANDE_MORTE}
+                "part_bande_morte": self.part_bande_morte, "score_bande_morte": SCORE_BANDE_MORTE,
+                "seuil_saturation": SEUIL_SATURATION, "part_saturee_max": PART_SATUREE_MAX}
 
 
 def decider(part_eau, nuages, amb, score_inconnu, seuils):
