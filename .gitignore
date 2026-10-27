@@ -4,6 +4,8 @@ data/
 *.pt
 *.pth
 *.onnx
+!modeles/one_look_int8.onnx
+!modeles/one_look_fp32.onnx
 # Python
 __pycache__/
 .ipynb_checkpoints/
