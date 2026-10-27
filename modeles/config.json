@@ -1,0 +1,65 @@
+{
+ "modele": "one_look_int8.onnx",
+ "entree": "reflectances Sentinel-2, 13 bandes (B1 a B12 et B8A), entiers L1C, forme (1, 13, H, W), H et W multiples de 8",
+ "sortie": "logits d'eau, forme (1, 1, H, W) ; probabilite = sigmoide(logits)",
+ "seuil_probabilite_eau": 0.5,
+ "definition_alerte": "au moins 5% de l'image inondee hors eau permanente",
+ "seuils_decision": {
+  "alerte": 0.05,
+  "nuages": 0.3,
+  "ambiguite": 0.0549,
+  "inconnu": 5.876
+ },
+ "seuil_bleu_nuage": 2000,
+ "detecteur_inconnu": {
+  "moyenne": [
+   1562.71,
+   1319.45,
+   1288.38,
+   1116.63,
+   1389.72,
+   2379.08,
+   2865.71,
+   2651.17,
+   3100.28,
+   480.87,
+   61.09,
+   1953.21,
+   1075.51
+  ],
+  "ecart": [
+   396.06,
+   407.14,
+   403.18,
+   508.77,
+   429.25,
+   499.05,
+   604.8,
+   569.02,
+   688.16,
+   296.95,
+   146.1,
+   577.5,
+   433.32
+  ],
+  "minimum": [
+   1123.41,
+   840.41,
+   817.23,
+   420.83,
+   829.0,
+   1133.09,
+   1291.7,
+   1091.35,
+   1172.14,
+   102.98,
+   5.71,
+   474.6,
+   271.71
+  ],
+  "seuil": 5.876,
+  "min_bande_controlee": 500.0,
+  "part_bande_morte": 0.5,
+  "score_bande_morte": 999.0
+ }
+}
