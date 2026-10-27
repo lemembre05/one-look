@@ -1,6 +1,7 @@
 """Entraînement et prédiction des réseaux de segmentation de l'eau."""
 
 import copy
+import random
 import time
 
 import numpy as np
@@ -19,6 +20,23 @@ def statistiques_bandes(images, indices, pas=8):
         echantillons.append(x[:, x.max(axis=0) > 0])
     x = np.concatenate(echantillons, axis=1)
     return x.mean(axis=1), x.std(axis=1) + 1e-6
+
+
+def fixer_graine(graine=0):
+    """Rend un entraînement reproductible : même graine → mêmes poids de départ, mêmes découpes
+    et, autant que le GPU le permet, mêmes calculs (cuDNN déterministe)."""
+    random.seed(graine)
+    np.random.seed(graine)
+    torch.manual_seed(graine)
+    torch.cuda.manual_seed_all(graine)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def _init_travailleur(_):
+    graine = torch.initial_seed() % 2**32
+    np.random.seed(graine)
+    random.seed(graine)
 
 
 class Decoupes(Dataset):
@@ -98,11 +116,11 @@ def entrainer(modele, images, labels, idx_train, idx_val, appareil,
     À chaque époque, l'IoU de l'eau est mesurée sur la validation ; on garde les poids
     de la meilleure époque. Renvoie l'historique (perte, IoU) sous forme de DataFrame.
     """
-    torch.manual_seed(graine)
-    np.random.seed(graine)
+    fixer_graine(graine)
     modele.to(appareil)
     charge = DataLoader(Decoupes(images, labels, idx_train, taille), batch_size=lot, shuffle=True,
-                        num_workers=2, drop_last=True)
+                        num_workers=2, drop_last=True, worker_init_fn=_init_travailleur,
+                        generator=torch.Generator().manual_seed(graine))
     opt = torch.optim.AdamW(modele.parameters(), lr=lr, weight_decay=1e-4)
     plan = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=epoques * len(charge))
     amp = appareil == "cuda"
