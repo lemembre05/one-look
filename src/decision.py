@@ -88,6 +88,16 @@ class DetecteurInconnu:
     def score(self, s2):
         return self.score_signature(signature(s2))
 
+    @classmethod
+    def depuis_config(cls, cfg):
+        """Recrée le détecteur à partir de config() (fichier config.json), sans les données."""
+        d = cls.__new__(cls)
+        d.moyenne, d.ecart, d.minimum = (np.asarray(cfg[c], dtype=np.float64) for c in ("moyenne", "ecart", "minimum"))
+        d.seuil = float(cfg["seuil"])
+        d.min_bande_controlee = float(cfg["min_bande_controlee"])
+        d.part_bande_morte = float(cfg["part_bande_morte"])
+        return d
+
     def config(self):
         return {"moyenne": self.moyenne.round(2).tolist(), "ecart": self.ecart.round(2).tolist(),
                 "minimum": self.minimum.round(2).tolist(), "seuil": round(self.seuil, 3),
