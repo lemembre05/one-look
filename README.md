@@ -27,7 +27,8 @@ Détails dans `docs/carnet_donnees.md`.
 Ouvrir `notebooks/01_exploration.ipynb` dans Google Colab : le notebook
 installe ses dépendances et télécharge les données lui-même.
 
-Pour la démonstration seule : `notebooks/06_demo.ipynb` (environ 2 minutes, sans GPU), ou en local
+Pour la démonstration seule : `notebooks/06_demo.ipynb` (environ 2 minutes, sans GPU) et
+`notebooks/07_image_inconnue.ipynb` (inondations en Italie, 2023), ou en local
 `pip install -r requirements.txt` puis `python app/app.py`.
 
 ## Résultats
@@ -152,6 +153,26 @@ Le système complet tel qu'il tournerait à bord : `modeles/one_look_int8.onnx` 
 Environ 220 ms par image sur un cœur de processeur. Une application Gradio (`app/app.py`) permet
 de déposer n'importe quelle image Sentinel-2 à 13 bandes et de simuler des pannes.
 
+### Image vraiment inconnue : Émilie-Romagne, mai 2023 (notebook 07)
+
+Images Sentinel-2 brutes téléchargées directement (copie publique Copernicus sur Google Cloud),
+hors de Sen1Floods11 : un pays absent (Italie), une autre année (2023) et une autre version de
+traitement (décalage radiométrique de +1000 depuis 2022, retiré automatiquement). Zone de
+20 km × 20 km entre Lugo et Conselice, avant et après les crues des 16 et 17 mai 2023.
+
+| Date | Zone entière | Eau anormale détectée | Vignettes de 5 km (ALERTE / INCERTAIN / PAS D'ALERTE) |
+|---|---|---|---|
+| 23 avril 2023 (avant) | PAS D'ALERTE | 0,7 % | 1 / 2 / 13 |
+| 23 mai 2023 (après) | **ALERTE** | 8,9 % | **7** / 0 / 9 |
+
+- Après les crues, les deux grandes zones inondées au nord de la zone sont détectées et les
+  7 vignettes en ALERTE sont toutes dans la moitié nord. Aucune annotation n'existe pour cette
+  image : la vérification est visuelle (les zones détectées correspondent aux étendues d'eau
+  visibles sur l'image). Une comparaison avec les cartes Copernicus EMSR664 reste à faire.
+- Avant les crues, 2 vignettes très nuageuses sont classées INCERTAIN, comme prévu.
+- Le score d'inconnu reste bas (0,6 à 2,2) : malgré le changement de pays, d'année et de
+  traitement, les images restent dans le domaine connu du modèle.
+
 ## Analyse des échecs
 
 - **Seuil d'inconnu trop permissif (corrigé).** La première version fixait le seuil sur le
@@ -163,6 +184,10 @@ de déposer n'importe quelle image Sentinel-2 à 13 bandes et de simuler des pan
   inondée, donc sombre) multipliée par 3 gardait un score d'inconnu de 5,3 et déclenchait une
   ALERTE. Règle physique ajoutée : plus de 2 % des pixels avec une réflectance ≥ 1 → INCONNU.
   Sur les 446 vraies images, cette part ne dépasse jamais 0,9 % ; sur Bolivia ×3 elle est de 24 %.
+- **Ombres de nuages (non corrigé).** Sur l'image italienne d'avril, une vignette sans inondation
+  passe en ALERTE avec 3,4 % d'« eau » pour un seuil de 3 % : les ombres des nuages sont sombres
+  dans toutes les bandes, comme l'eau. Piste : un masque d'ombres calculé à partir des nuages
+  détectés, ou le radar, insensible aux nuages.
 - **Inondations faibles (non corrigé).** Ghana_313799 (6,1 % inondé, 2,6 % détecté) est juste
   sous le seuil : les petites inondations dispersées restent le point faible.
 - **Nuages (limite).** Sous 52 % de nuages, Ghana_866994 ne montre que 3,6 % d'eau pour 40 %
@@ -182,3 +207,4 @@ de déposer n'importe quelle image Sentinel-2 à 13 bandes et de simuler des pan
 - [x] Gestion des fausses alertes et de l'inconnu
 - [x] Export ONNX, compression 8 bits, taille et temps d'inférence
 - [x] Démonstration sur des images inconnues (notebook 06 et application Gradio)
+- [x] Démonstration sur une image hors jeu de données : Émilie-Romagne, mai 2023 (notebook 07)
