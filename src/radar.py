@@ -110,9 +110,16 @@ def sur_grille(item, crs, transform, taille, marge_m=15000):
             gcps, gcp_crs = f.gcps
             px = np.array([g.col for g in gcps]); ln = np.array([g.row for g in gcps])
             gx, gy = vers_s2.transform(np.array([g.x for g in gcps]), np.array([g.y for g in gcps]))
-            dedans = ((gx > min(x0, x1) - marge_m) & (gx < max(x0, x1) + marge_m)
-                      & (gy > min(y0, y1) - marge_m) & (gy < max(y0, y1) + marge_m))
-            if dedans.sum() < 4:
+            # points d'appui autour de la zone ; on élargit tant qu'ils ne forment pas une vraie
+            # grille (au moins 3 lignes et 3 colonnes distinctes), sinon la transformation est indéterminée
+            for marge in [marge_m, 2 * marge_m, 4 * marge_m]:
+                dedans = ((gx > min(x0, x1) - marge) & (gx < max(x0, x1) + marge)
+                          & (gy > min(y0, y1) - marge) & (gy < max(y0, y1) + marge))
+                if len(set(px[dedans])) >= 3 and len(set(ln[dedans])) >= 3:
+                    break
+            else:
+                raise RuntimeError("zone hors de l'image radar")
+            if not dedans.any():
                 raise RuntimeError("zone hors de l'image radar")
             c0, c1 = int(max(px[dedans].min(), 0)), int(min(px[dedans].max(), f.width - 1))
             l0, l1 = int(max(ln[dedans].min(), 0)), int(min(ln[dedans].max(), f.height - 1))
