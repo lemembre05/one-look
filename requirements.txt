@@ -10,3 +10,6 @@ onnx
 onnxruntime
 segmentation-models-pytorch
 gradio
+pyproj
+pystac-client
+planetary-computer
