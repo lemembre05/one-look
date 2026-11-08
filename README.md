@@ -77,10 +77,12 @@ sur un cœur de CPU.
   Le modèle C suppose qu'une image radar récente de la même zone est disponible (traitement au sol,
   ou constellation qui partage ses données). Pour un satellite optique seul, c'est le modèle A ou B.
 
-## Modèle final embarqué (notebook 05)
+## Modèle optique, devenu modèle de secours (notebook 05)
 
-Choix : **petit U-Net, Sentinel-2 seul, 60 époques** (expérience B). Le radar améliore les cartes
-d'eau mais suppose un second satellite ; il reste une perspective.
+Premier modèle final : **petit U-Net, Sentinel-2 seul, 60 époques** (expérience B). Depuis que
+l'usage de plusieurs satellites est validé, le modèle principal est le modèle fusionné optique +
+radar (section suivante) ; ce modèle optique reste **le secours**, utilisé quand aucune image radar
+récente n'est disponible.
 
 ### Reproductibilité et choix de la graine
 
@@ -136,6 +138,60 @@ une image de test × 3 transformations) : **toutes classées INCONNU**, les orig
 leur décision. Détecteur : écart de la réflectance moyenne de chaque bande à l'entraînement
 (seuil = 1,2 × 99e centile), contrôle des bandes mortes et contrôle de saturation.
 
+## Modèle principal : fusion optique + radar (notebooks 08 et 10)
+
+Mêmes 15 bandes que l'expérience C (13 bandes Sentinel-2 + radar Sentinel-1 VV et VH), même petit
+U-Net, 3 graines, choix de la graine sur la validation. Deux durées d'entraînement :
+
+| Entraînement | Graine 0 (val. / test) | Graine 1 | Graine 2 | Moyenne val. | Moyenne test |
+|---|---|---|---|---|---|
+| 60 époques (notebook 08) | 0,835 / 0,803 | 0,835 / 0,802 | 0,842 / 0,809 | 0,837 ± 0,004 | 0,805 ± 0,004 |
+| **150 époques (notebook 10)** | 0,855 / 0,822 | **0,859** / 0,818 | 0,849 / 0,805 | **0,854 ± 0,005** | **0,815 ± 0,009** |
+
+Règle fixée avant l'entraînement long : il remplace le modèle de 60 époques seulement si son IoU
+de validation est meilleure. C'est le cas (+0,017, au-delà de la variabilité entre graines) :
+**modèle retenu : 150 époques, graine 1**, fichiers `modeles/fusion/`. Contrairement au modèle
+optique (expérience B), le modèle fusionné profite d'un entraînement plus long : ses meilleures
+époques tombent entre 103 et 133 sur 150.
+
+Version embarquée : **ONNX INT8, 0,66 Mo, 240 ms par image 512 × 512 sur un cœur de CPU**
+(IoU 0,857 en validation, 0,816 en test).
+
+### Seuil d'alerte : réglé sur la validation
+
+Avec le seuil d'alerte choisi sur l'entraînement comme pour le modèle optique, le modèle fusionné
+de 60 époques manquait 5 inondations de validation sans prévenir (2 pour celui de 150 époques).
+Explication : un modèle colle mieux à ses propres images d'entraînement, il y estime très bien la
+surface inondée, et le seuil qui en sort (5 % d'eau détectée) est trop strict sur des pays
+nouveaux. **Règle retenue pour le système final : le seuil d'alerte est choisi sur la validation**
+(pays jamais vus à l'entraînement) ; le test ne sert qu'à mesurer. Cette règle a été adoptée
+après avoir vu les résultats du notebook 08 ; le test n'a pas servi à la choisir. Pour le modèle
+optique, elle donne le même seuil qu'avant (3 %).
+
+### Fusion contre optique seul (décision à 4 issues, chacun avec son seuil réglé sur la validation)
+
+| | Optique seul (secours) | **Fusion optique + radar** |
+|---|---|---|
+| IoU eau, validation | 0,821 | **0,857** |
+| IoU eau, test | 0,789 | **0,816** |
+| IoU eau, images nuageuses, validation (22 images) | 0,641 | **0,701** |
+| IoU eau, images nuageuses, test (36 images) | **0,720** | 0,716 |
+| F1 des alertes, validation | 0,878 | **0,923** |
+| F1 des alertes, test | 0,880 | **0,906** |
+| Inondations manquées sans prévenir, validation (18) | 0 | 0 |
+| Inondations manquées sans prévenir, test (24) | 2 | **0** |
+| Fausses alertes, validation | 12,5 % | **7,9 %** |
+| Fausses alertes, test | **6,8 %** | 8,6 % |
+| INCERTAIN, validation / test | 12 / 15 | 14 / 15 |
+
+- **Aucune inondation manquée** en validation ni en test : les 24 inondations du test sont toutes
+  signalées en ALERTE.
+- Cartes d'eau meilleures partout, nettement sous les nuages en validation ; en test, l'IoU
+  sous les nuages est la même que l'optique seul : le radar n'y fait pas de miracle.
+- Le prix : un peu plus de fausses alertes en test (8,6 % contre 6,8 %).
+- Images anormales (capteur saturé, bandes perdues, radar perdu, neige, bruit) : toutes INCONNU.
+  Si le radar manque ou est illisible, la démonstration bascule sur le modèle optique de secours.
+
 ## Démonstration (notebook 06)
 
 Le système complet tel qu'il tournerait à bord : `modeles/one_look_int8.onnx` (0,66 Mo) et
@@ -160,18 +216,31 @@ hors de Sen1Floods11 : un pays absent (Italie), une autre année (2023) et une a
 traitement (décalage radiométrique de +1000 depuis 2022, retiré automatiquement). Zone de
 20 km × 20 km entre Lugo et Conselice, avant et après les crues des 16 et 17 mai 2023.
 
-| Date | Zone entière | Eau anormale détectée | Vignettes de 5 km (ALERTE / INCERTAIN / PAS D'ALERTE) |
-|---|---|---|---|
-| 23 avril 2023 (avant) | PAS D'ALERTE | 0,7 % | 1 / 2 / 13 |
-| 23 mai 2023 (après) | **ALERTE** | 8,9 % | **7** / 0 / 9 |
+Radar Sentinel-1 des mêmes jours, traité comme dans Sen1Floods11 (`src/radar.py` : étalonnage
+sigma0, retrait du bruit thermique, dB, mise sur la grille de l'image optique). Acquisitions
+les plus proches : 28 avril 2023 (5 jours après l'image optique d'avant, orbite descendante) et
+23 mai 2023 (le jour même, orbite montante). Sur l'image radar du 23 mai, les deux zones inondées
+du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent pas le 28 avril.
+
+| Date | Modèle | Zone entière | Eau anormale détectée | Vignettes de 5 km (ALERTE / INCERTAIN / PAS D'ALERTE) |
+|---|---|---|---|---|
+| 23 avril 2023 (avant) | optique seul | PAS D'ALERTE | 0,7 % | 1 / 2 / 13 |
+| 23 avril 2023 (avant) | **fusion optique + radar** | PAS D'ALERTE | 0,7 % | **0** / 2 / 14 |
+| 23 mai 2023 (après) | optique seul | **ALERTE** | 8,9 % | 7 / 0 / 9 |
+| 23 mai 2023 (après) | **fusion optique + radar** | **ALERTE** | 8,5 % | 7 / 0 / 9 |
 
 - Après les crues, les deux grandes zones inondées au nord de la zone sont détectées et les
-  7 vignettes en ALERTE sont toutes dans la moitié nord. Aucune annotation n'existe pour cette
-  image : la vérification est visuelle (les zones détectées correspondent aux étendues d'eau
-  visibles sur l'image). Une comparaison avec les cartes Copernicus EMSR664 reste à faire.
-- Avant les crues, 2 vignettes très nuageuses sont classées INCERTAIN, comme prévu.
-- Le score d'inconnu reste bas (0,6 à 2,2) : malgré le changement de pays, d'année et de
-  traitement, les images restent dans le domaine connu du modèle.
+  7 vignettes en ALERTE sont toutes dans la moitié nord, avec ou sans radar. Aucune annotation
+  n'existe pour cette image : la vérification est visuelle (les zones détectées correspondent
+  aux étendues d'eau visibles sur les images optique et radar). Une comparaison avec les cartes
+  Copernicus EMSR664 reste à faire.
+- Avant les crues, la vignette passée à tort en ALERTE par le modèle optique (ombres de nuages,
+  voir l'analyse des échecs) **repasse en PAS D'ALERTE avec le radar**. Réserve : l'image radar
+  d'avant a 5 jours d'écart avec l'image optique.
+- Les 2 vignettes très nuageuses d'avant restent INCERTAIN.
+- Le score d'inconnu reste bas : malgré le changement de pays, d'année et de traitement, les
+  images restent dans le domaine connu des modèles.
+- Limite du traitement radar : pas de correction du relief (valable en plaine, pas en montagne).
 
 ## Analyse des échecs
 
@@ -184,14 +253,17 @@ traitement (décalage radiométrique de +1000 depuis 2022, retiré automatiqueme
   inondée, donc sombre) multipliée par 3 gardait un score d'inconnu de 5,3 et déclenchait une
   ALERTE. Règle physique ajoutée : plus de 2 % des pixels avec une réflectance ≥ 1 → INCONNU.
   Sur les 446 vraies images, cette part ne dépasse jamais 0,9 % ; sur Bolivia ×3 elle est de 24 %.
-- **Ombres de nuages (non corrigé).** Sur l'image italienne d'avril, une vignette sans inondation
-  passe en ALERTE avec 3,4 % d'« eau » pour un seuil de 3 % : les ombres des nuages sont sombres
-  dans toutes les bandes, comme l'eau. Piste : un masque d'ombres calculé à partir des nuages
-  détectés, ou le radar, insensible aux nuages.
+- **Ombres de nuages (corrigé par le radar sur l'exemple italien).** Sur l'image italienne
+  d'avril, le modèle optique passe une vignette sans inondation en ALERTE avec 3,4 % d'« eau »
+  pour un seuil de 3 % : les ombres des nuages sont sombres dans toutes les bandes, comme l'eau.
+  Le modèle fusionné la classe PAS D'ALERTE : le radar, qui ne voit pas les ombres, ne confirme
+  pas cette eau. Un seul exemple : l'étude bande par bande (notebook 09) doit mesurer l'effet
+  sur tout le jeu de test.
 - **Inondations faibles (non corrigé).** Ghana_313799 (6,1 % inondé, 2,6 % détecté) est juste
   sous le seuil : les petites inondations dispersées restent le point faible.
-- **Nuages (limite).** Sous 52 % de nuages, Ghana_866994 ne montre que 3,6 % d'eau pour 40 %
-  réels : l'alerte passe de justesse. Le radar Sentinel-1 (expérience C) est la piste naturelle.
+- **Nuages (limite).** Sous 52 % de nuages, Ghana_866994 montre 3,6 % d'eau pour 40 % réels
+  avec l'optique seul (ALERTE de justesse), 4,8 % avec la fusion. La fusion ne suffit pas à
+  retrouver toute l'eau cachée sous ces nuages.
 - **Variabilité de l'entraînement.** ±0,01 d'IoU d'une graine à l'autre : avec 18 à 24 alertes
   par partie, une ou deux images changent nettement le F1.
 
@@ -208,3 +280,6 @@ traitement (décalage radiométrique de +1000 depuis 2022, retiré automatiqueme
 - [x] Export ONNX, compression 8 bits, taille et temps d'inférence
 - [x] Démonstration sur des images inconnues (notebook 06 et application Gradio)
 - [x] Démonstration sur une image hors jeu de données : Émilie-Romagne, mai 2023 (notebook 07)
+- [x] Modèle principal fusionné optique + radar, entraînement long, seuil d'alerte réglé sur la validation (notebooks 08 et 10)
+- [x] Radar Sentinel-1 sur la démonstration italienne (notebook 07)
+- [ ] Étude bande par bande : RGB, infrarouge, radar (notebook 09, en attente de GPU)
