@@ -38,8 +38,11 @@ def ambiguite(prob, s2, perm, bas=0.2, haut=0.8):
 
 
 def signature(s2):
-    """Réflectance moyenne de chaque bande sur les pixels vus : résumé de l'image."""
-    vu = s2.max(axis=0) > 0
+    """Réflectance moyenne de chaque bande sur les pixels vus : résumé de l'image.
+
+    Les pixels vus sont ceux où l'optique (13 premières bandes) a une valeur ; les bandes radar
+    éventuelles (modèle fusionné) sont résumées sur les mêmes pixels."""
+    vu = s2[:13].max(axis=0) > 0
     if not vu.any():
         return np.zeros(s2.shape[0])
     return s2[:, vu].mean(axis=1)
