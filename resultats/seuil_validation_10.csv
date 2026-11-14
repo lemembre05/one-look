@@ -1,0 +1,9 @@
+modele,regle,t_alerte,partie,ALERTE,PAS D'ALERTE,INCERTAIN,INCONNU,f1,rappel,taux_fausse_alerte,inondations_manquees_sans_prevenir,inondations_signalees_incertaines
+optique seul,seuil choisi sur l'entraînement,0.03,validation,23,35,12,0,0.878,1.0,0.125,0,0
+optique seul,seuil choisi sur l'entraînement,0.03,test,26,57,15,0,0.88,0.917,0.068,2,0
+optique seul,seuil choisi sur la validation,0.03,validation,23,35,12,0,0.878,1.0,0.125,0,0
+optique seul,seuil choisi sur la validation,0.03,test,26,57,15,0,0.88,0.917,0.068,2,0
+fusion optique + radar,seuil choisi sur l'entraînement,0.05,validation,17,39,14,0,0.914,0.889,0.026,2,0
+fusion optique + radar,seuil choisi sur l'entraînement,0.05,test,20,61,16,1,0.93,0.87,0.0,3,1
+fusion optique + radar,seuil choisi sur la validation,0.03,validation,21,35,14,0,0.923,1.0,0.079,0,0
+fusion optique + radar,seuil choisi sur la validation,0.03,test,29,53,15,1,0.906,1.0,0.086,0,0

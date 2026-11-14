@@ -1,0 +1,4 @@
+graine,meilleure_epoque,iou_validation,iou_test
+0,133,0.855,0.822
+1,110,0.859,0.818
+2,103,0.849,0.805
