@@ -192,22 +192,55 @@ optique, elle donne le même seuil qu'avant (3 %).
 - Images anormales (capteur saturé, bandes perdues, radar perdu, neige, bruit) : toutes INCONNU.
   Si le radar manque ou est illisible, la démonstration bascule sur le modèle optique de secours.
 
+## Quelles bandes séparent l'eau des nuages et de leurs ombres ? (notebook 09)
+
+Question du mentor : avec seulement les couleurs (RGB), comment distinguer l'eau d'une ombre de
+nuage, et les autres bandes apportent-elles un signal qui fait la différence ? Même petit U-Net,
+même entraînement (60 époques, graine 0), seules les bandes d'entrée changent. Fausses
+détections : part des pixels annotés « terre » pris pour de l'eau sur les images nuageuses.
+
+| Bandes | Nb | IoU val. | IoU test | IoU nuageuses val. | IoU nuageuses test | Fausses détect. nuag. val. | test |
+|---|---|---|---|---|---|---|---|
+| RGB (B4, B3, B2) | 3 | 0,210 | 0,328 | 0,237 | 0,402 | 4,4 % | 3,9 % |
+| RGB + proche infrarouge (B8) | 4 | 0,514 | 0,767 | 0,245 | 0,741 | 8,7 % | 2,2 % |
+| **RGB + PIR + infrarouge moyen (B11, B12)** | 6 | **0,833** | 0,808 | 0,621 | 0,724 | 2,3 % | 1,8 % |
+| 13 bandes optiques | 13 | 0,810 | **0,810** | 0,598 | 0,720 | 3,5 % | **1,2 %** |
+| Radar seul (VV, VH) | 2 | 0,526 | 0,612 | 0,518 | 0,563 | 3,5 % | 2,1 % |
+| **Optique + radar** | 15 | **0,835** | 0,803 | **0,702** | **0,731** | **1,6 %** | 1,5 % |
+
+- **Les couleurs seules ne suffisent pas** : eau boueuse, ombres et sols sombres se ressemblent
+  dans le visible.
+- **L'infrarouge fait la différence** : le proche infrarouge (absorbé par l'eau) puis
+  l'infrarouge moyen (où l'eau est quasi noire alors qu'un sol à l'ombre garde du signal). Avec
+  ces 6 bandes, le réseau fait aussi bien qu'avec les 13.
+- **Le radar seul est trop bruité**, mais combiné à l'optique il donne la meilleure carte sous les
+  nuages et le moins de fausses détections en validation.
+- Une seule graine par configuration : les écarts de 0,01 à 0,02 ne sont pas significatifs.
+  Contrôle de reproductibilité : « optique + radar » redonne exactement l'IoU du notebook 08
+  (graine 0 : 0,835 et 0,803).
+- Conséquence : un modèle fusionné allégé (6 bandes optiques + radar) est entraîné dans le
+  notebook 12, avec la même règle de choix.
+
 ## Démonstration (notebook 06)
 
-Le système complet tel qu'il tournerait à bord : `modeles/one_look_int8.onnx` (0,66 Mo) et
-`modeles/config.json`, sans PyTorch ni GPU. Images de pays jamais vus à l'entraînement :
+Le système complet tel qu'il tournerait à bord : les fichiers ONNX 8 bits (0,66 Mo chacun) et
+leurs seuils, sans PyTorch ni GPU. Modèle fusionné quand l'image radar est exploitable, modèle
+optique de secours sinon. Images de pays jamais vus à l'entraînement :
 
-| Image | Décision | Eau détectée | Inondé (annotation) | Nuages | Verdict |
-|---|---|---|---|---|---|
-| Bolivia_103757 | ALERTE | 37,8 % | 40,1 % | 3 % | juste |
-| Bolivia_360519 | PAS D'ALERTE | 1,0 % | 1,1 % | 1 % | juste |
-| Spain_7370579 | ALERTE | 32,1 % | 26,7 % | 1 % | juste |
-| Ghana_313799 | PAS D'ALERTE | 2,6 % | 6,1 % | 1 % | **manquée** (cas limite) |
-| Ghana_866994 | ALERTE | 3,6 % | 40,0 % | 52 % | juste, de justesse |
-| Ghana_26376 | INCERTAIN | 0,0 % | non annotée | 81 % | juste : image presque entièrement nuageuse |
+| Image | Modèle | Décision | Eau détectée | Optique seul | Inondé (annotation) | Nuages | Verdict |
+|---|---|---|---|---|---|---|---|
+| Bolivia_103757 | secours (radar inexploitable) | ALERTE | 37,8 % | ALERTE, 37,8 % | 40,1 % | 3 % | juste |
+| Bolivia_360519 | fusion | PAS D'ALERTE | 2,4 % | PAS D'ALERTE, 1,0 % | 1,1 % | 1 % | juste |
+| Spain_7370579 | fusion | ALERTE | 30,6 % | ALERTE, 32,1 % | 26,7 % | 1 % | juste |
+| Ghana_313799 | fusion | **ALERTE** | 3,1 % | PAS D'ALERTE, 2,6 % | 6,1 % | 1 % | **juste** (manquée sans radar) |
+| Ghana_866994 | fusion | ALERTE | 4,8 % | ALERTE, 3,6 % | 40,0 % | 52 % | juste, eau sous-estimée |
+| Ghana_26376 | fusion | INCERTAIN | 0,0 % | INCERTAIN | non annotée | 81 % | juste : image presque entièrement nuageuse |
 
-Environ 220 ms par image sur un cœur de processeur. Une application Gradio (`app/app.py`) permet
-de déposer n'importe quelle image Sentinel-2 à 13 bandes et de simuler des pannes.
+Anomalies simulées sur Bolivia_360519 : capteur saturé, bandes infrarouges perdues et bruit →
+INCONNU ; radar coupé → bascule sur le modèle optique, décision inchangée (PAS D'ALERTE).
+Environ 0,4 s par image, réseau et décision compris, sur un cœur du processeur de Colab.
+L'application Gradio (`app/app.py`) permet de déposer n'importe quelle image Sentinel-2, avec ou
+sans image radar, et de simuler des pannes.
 
 ### Image vraiment inconnue : Émilie-Romagne, mai 2023 (notebook 07)
 
@@ -242,6 +275,36 @@ du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent
   images restent dans le domaine connu des modèles.
 - Limite du traitement radar : pas de correction du relief (valable en plaine, pas en montagne).
 
+## Extension aux feux de forêt (notebook 11)
+
+Proposition du mentor : la même démarche pour un autre type de catastrophe, avec le **détourage**
+des zones touchées. Feu de l'Évros (Grèce, août-septembre 2023), zone de 30 km × 30 km entre
+Alexandroupoli et la forêt de Dadia ; images Sentinel-2 L2A du 29 juillet (avant) et du
+7 octobre 2023 (après), même orbite, sans nuages.
+
+Pas de réseau entraîné (pas de jeu de feux annoté dans le temps du projet) : indice physique de
+référence, le NBR = (B8 − B12) / (B8 + B12), et sa différence avant / après (dNBR) avec les seuils
+de sévérité de l'USGS. Zone brûlée = dNBR ≥ 0,27, trous bouchés, taches de moins de 1 ha retirées.
+Deux bandes et quelques opérations par pixel : calcul compatible avec le bord.
+
+| | Résultat |
+|---|---|
+| Décision sur la zone entière | **ALERTE** |
+| Surface brûlée détectée | 51 745 ha (58 % des pixels valides) |
+| Vignettes de 5 km | 32 ALERTE, 4 PAS D'ALERTE |
+| Contours exportés (GeoJSON) | 278 zones de plus de 1 ha, dont une de 49 704 ha |
+
+Surface par sévérité (ha) : non brûlé 27 326, faible 15 215, modérée-faible 12 005,
+modérée-forte 11 628, forte 23 302.
+
+- Le contour de la grande zone brûlée suit la limite visible sur l'image (fichier
+  `resultats/feux_evros_contours.geojson`, à ouvrir dans QGIS ou Google Earth).
+- **Limite visible** : au sud-est, beaucoup de petits contours tombent sur des champs. Récoltes et
+  labours entre juillet et octobre font aussi baisser le NBR : ce sont probablement de fausses
+  détections, que le retrait des taches de moins de 1 ha ne supprime pas toutes.
+- Prochaine étape : un réseau entraîné sur un jeu de feux annoté (par exemple CaBuAr), avec la
+  méthode des inondations, et une comparaison avec la carte officielle Copernicus.
+
 ## Analyse des échecs
 
 - **Seuil d'inconnu trop permissif (corrigé).** La première version fixait le seuil sur le
@@ -259,8 +322,9 @@ du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent
   Le modèle fusionné la classe PAS D'ALERTE : le radar, qui ne voit pas les ombres, ne confirme
   pas cette eau. Un seul exemple : l'étude bande par bande (notebook 09) doit mesurer l'effet
   sur tout le jeu de test.
-- **Inondations faibles (non corrigé).** Ghana_313799 (6,1 % inondé, 2,6 % détecté) est juste
-  sous le seuil : les petites inondations dispersées restent le point faible.
+- **Inondations faibles (corrigé par le radar sur cet exemple).** Ghana_313799 (6,1 % inondé) :
+  2,6 % détecté par le modèle optique, juste sous le seuil ; 3,1 % avec la fusion, l'alerte passe.
+  Les petites inondations dispersées restent un point faible : la marge est mince.
 - **Nuages (limite).** Sous 52 % de nuages, Ghana_866994 montre 3,6 % d'eau pour 40 % réels
   avec l'optique seul (ALERTE de justesse), 4,8 % avec la fusion. La fusion ne suffit pas à
   retrouver toute l'eau cachée sous ces nuages.
@@ -282,4 +346,6 @@ du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent
 - [x] Démonstration sur une image hors jeu de données : Émilie-Romagne, mai 2023 (notebook 07)
 - [x] Modèle principal fusionné optique + radar, entraînement long, seuil d'alerte réglé sur la validation (notebooks 08 et 10)
 - [x] Radar Sentinel-1 sur la démonstration italienne (notebook 07)
-- [ ] Étude bande par bande : RGB, infrarouge, radar (notebook 09, en attente de GPU)
+- [x] Étude bande par bande : RGB, infrarouge, radar (notebook 09)
+- [ ] Modèle fusionné allégé, 6 bandes optiques + radar (notebook 12)
+- [x] Extension aux feux de forêt : sévérité, décision et détourage (notebook 11)
