@@ -12,13 +12,21 @@ class Normalise(nn.Module):
     rien à recalculer à bord. Sortie : logits d'eau, forme (B, 1, H, W).
     """
 
-    def __init__(self, reseau, moyenne, ecart):
+    def __init__(self, reseau, moyenne, ecart, bandes=None):
+        """bandes : indices des bandes à garder parmi celles de l'entrée (None = toutes). Le modèle
+        exporté prend alors toujours l'image complète et choisit ses bandes lui-même ; moyenne et
+        écart sont ceux des bandes gardées."""
         super().__init__()
         self.reseau = reseau
         self.register_buffer("moyenne", torch.as_tensor(moyenne, dtype=torch.float32).view(1, -1, 1, 1))
         self.register_buffer("ecart", torch.as_tensor(ecart, dtype=torch.float32).view(1, -1, 1, 1))
+        self.choisit = bandes is not None
+        if self.choisit:
+            self.register_buffer("bandes", torch.as_tensor(list(bandes), dtype=torch.long))
 
     def forward(self, x):
+        if self.choisit:
+            x = x.index_select(1, self.bandes)
         return self.reseau((x - self.moyenne) / self.ecart)
 
 
