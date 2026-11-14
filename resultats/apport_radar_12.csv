@@ -1,0 +1,15 @@
+,optique seul (notebook 05),fusion optique + radar
+iou_validation,0.821,0.861
+iou_validation_nuageuses,0.641,0.68
+f1_validation,0.878,0.971
+rappel_validation,1.0,0.944
+fausses_alertes_validation,0.125,0.0
+manquees_validation,0.0,1.0
+incertain_validation,12.0,15.0
+iou_test,0.789,0.813
+iou_test_nuageuses,0.72,0.727
+f1_test,0.88,0.93
+rappel_test,0.917,0.87
+fausses_alertes_test,0.068,0.0
+manquees_test,2.0,3.0
+incertain_test,15.0,16.0

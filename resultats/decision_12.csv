@@ -1,0 +1,5 @@
+partie,decision,images,ALERTE,PAS D'ALERTE,INCERTAIN,INCONNU,couverture,precision,rappel,f1,taux_fausse_alerte,inondations_manquees_sans_prevenir,inondations_signalees_incertaines
+validation,2 issues (oui / non),70,17,53,0,0,1.0,1.0,0.944,0.971,0.0,1,0
+validation,4 issues,70,17,38,15,0,0.786,1.0,0.944,0.971,0.0,1,0
+test,2 issues (oui / non),98,20,78,0,0,1.0,1.0,0.833,0.909,0.0,4,0
+test,4 issues,98,20,61,16,1,0.827,1.0,0.87,0.93,0.0,3,1

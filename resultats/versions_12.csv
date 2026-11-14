@@ -1,0 +1,4 @@
+version,t_alerte,taille_Mo,ms_1_coeur,iou_validation,f1_validation,fausses_alertes_validation,iou_test,f1_test,fausses_alertes_test
+PyTorch,0.05,1.93,423.0,0.861,0.971,0.0,0.815,0.909,0.0
+ONNX FP32,0.05,1.94,223.0,0.861,0.971,0.0,0.815,0.909,0.0
+ONNX INT8,0.05,0.66,268.0,0.861,0.971,0.0,0.813,0.909,0.0
