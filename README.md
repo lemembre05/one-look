@@ -221,6 +221,27 @@ détections : part des pixels annotés « terre » pris pour de l'eau sur les im
 - Conséquence : un modèle fusionné allégé (6 bandes optiques + radar) est entraîné dans le
   notebook 12, avec la même règle de choix.
 
+### Modèle fusionné allégé : 6 bandes optiques + radar (notebook 12)
+
+| | 15 bandes (retenu) | 8 bandes (allégé) |
+|---|---|---|
+| IoU validation, 3 graines | 0,854 ± 0,005 | 0,859 ± 0,002 |
+| IoU validation, meilleure graine | 0,859 | 0,861 |
+| Seuil d'alerte (réglé sur la validation) | 3 % | 5 % |
+| Inondations manquées, validation (sur 18) | **0** | 1 |
+| Fausses alertes, validation | 7,9 % | **0 %** |
+| *Mesure seulement :* IoU test | 0,816 | 0,813 |
+| *Mesure seulement :* inondations manquées, test (sur 24) | **0** | 3 |
+| *Mesure seulement :* fausses alertes, test | 8,6 % | **0 %** |
+
+Aussi bien avec deux fois moins de bandes (écart d'IoU inférieur à la variabilité entre
+graines). La règle « remplacer seulement si l'IoU de validation est meilleure » est une condition
+nécessaire ; pour un système d'alerte, le critère décisif est de ne pas manquer d'inondation, et
+sur la validation le modèle complet n'en manque aucune contre une pour l'allégé. **Le modèle à
+15 bandes reste le modèle principal** ; le test, regardé ensuite pour mesurer, va dans le même
+sens. L'allégé (fichiers `modeles/fusion_6b/`) reste une option si la bande passante à bord
+impose de lire moins de bandes.
+
 ## Démonstration (notebook 06)
 
 Le système complet tel qu'il tournerait à bord : les fichiers ONNX 8 bits (0,66 Mo chacun) et
@@ -347,5 +368,5 @@ modérée-forte 11 628, forte 23 302.
 - [x] Modèle principal fusionné optique + radar, entraînement long, seuil d'alerte réglé sur la validation (notebooks 08 et 10)
 - [x] Radar Sentinel-1 sur la démonstration italienne (notebook 07)
 - [x] Étude bande par bande : RGB, infrarouge, radar (notebook 09)
-- [ ] Modèle fusionné allégé, 6 bandes optiques + radar (notebook 12)
+- [x] Modèle fusionné allégé, 6 bandes optiques + radar (notebook 12) : aussi bon en IoU, non retenu (1 inondation manquée en validation)
 - [x] Extension aux feux de forêt : sévérité, décision et détourage (notebook 11)
