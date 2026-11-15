@@ -7,7 +7,7 @@
  "definition_alerte": "au moins 5% de l'image inondee hors eau permanente",
  "seuils_decision": {
   "alerte": 0.03,
-  "nuages": 0.3,
+  "nuages": 1.01,
   "ambiguite": 0.0531,
   "inconnu": 5.876
  },
@@ -70,5 +70,7 @@
   "score_bande_morte": 999.0,
   "seuil_saturation": 10000,
   "part_saturee_max": 0.02
- }
+ },
+ "note_seuils": "Notebook 13 : avec le radar, le seuil de nuages est supprime (1.01 = jamais atteint). Regle fixee avant les resultats : le plus haut seuil sans inondation de validation manquee en plus et sans plus de 2 points de fausses alertes. Validation : 14 INCERTAIN -> 0, fausses alertes 7,9 % -> 5,8 %, 0 manquee. Le modele optique de secours garde son seuil de 0,3. Symetries a l'inference non retenues (+0,002 d'IoU seulement).",
+ "symetries": 1
 }
