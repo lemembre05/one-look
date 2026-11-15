@@ -182,7 +182,7 @@ optique, elle donne le même seuil qu'avant (3 %).
 | Inondations manquées sans prévenir, test (24) | 2 | **0** |
 | Fausses alertes, validation | 12,5 % | **7,9 %** |
 | Fausses alertes, test | **6,8 %** | 8,6 % |
-| INCERTAIN, validation / test | 12 / 15 | 14 / 15 |
+| INCERTAIN, validation / test (seuil de nuages 30 % pour les deux) | 12 / 15 | 14 / 15 |
 
 - **Aucune inondation manquée** en validation ni en test : les 24 inondations du test sont toutes
   signalées en ALERTE.
@@ -191,6 +191,41 @@ optique, elle donne le même seuil qu'avant (3 %).
 - Le prix : un peu plus de fausses alertes en test (8,6 % contre 6,8 %).
 - Images anormales (capteur saturé, bandes perdues, radar perdu, neige, bruit) : toutes INCONNU.
   Si le radar manque ou est illisible, la démonstration bascule sur le modèle optique de secours.
+
+### Derniers réglages sans réentraîner (notebook 13)
+
+Deux pistes testées sur le modèle retenu, avec des règles fixées **avant** de voir les résultats
+et appliquées sur la validation uniquement :
+
+1. **Moyenne sur des symétries de l'image** (l'image analysée aussi retournée ou transposée, 4 ou
+   8 passes du réseau). Adoptée seulement si l'IoU de validation gagne au moins 0,005.
+   Résultat : 0,857 → 0,859 (4 symétries) et 0,859 (8), soit +0,002 pour un calcul 3 à 5 fois
+   plus long. **Non retenue.**
+2. **Seuil de nuages avec le radar.** Le système répondait INCERTAIN dès 30 % de nuages, même
+   avec l'image radar qui voit à travers. Règle : le seuil le plus haut (30 %, 40 %, 50 %, 70 %
+   ou aucun) qui, en validation, ne fait rater aucune inondation de plus et n'ajoute pas plus de
+   2 points de fausses alertes.
+
+| Seuil de nuages (modèle fusionné) | INCERTAIN val. / test | Inondations manquées val. / test | Fausses alertes val. / test |
+|---|---|---|---|
+| 30 % (avant) | 14 / 15 | 0 / 0 | 7,9 % / 8,6 % |
+| 40 % | 14 / 11 | 0 / 0 | 7,9 % / 8,1 % |
+| 50 % | 9 / 6 | 0 / 0 | 7,0 % / 7,5 % |
+| 70 % | 3 / 4 | 0 / 0 | 6,1 % / 7,2 % |
+| **aucun (retenu)** | **0 / 0** | **0 / 0** | **5,8 % / 6,8 %** |
+
+- **Retenu : plus de seuil de nuages quand le radar est utilisé.** Les 14 images de validation
+  et les 15 de test qui étaient INCERTAIN reçoivent maintenant une réponse, et aucune
+  inondation n'est ratée parmi elles.
+- La baisse du taux de fausses alertes vient seulement de là : le **nombre** de fausses
+  alertes ne change pas (3 en validation, 5 en test), mais il est divisé par plus d'images
+  décidées. F1 inchangé (0,923 et 0,906).
+- Décision finale en test : 29 ALERTE / 68 PAS D'ALERTE / 0 INCERTAIN / 1 INCONNU.
+- **Le modèle optique de secours garde son seuil de 30 %** : sans radar, sous les nuages, le
+  système continue de dire INCERTAIN.
+- Réserve : dans Sen1Floods11, l'image radar est prise le même jour ou presque que l'image
+  optique. Avec un radar de plusieurs jours d'écart, ce réglage serait à revérifier.
+- INCERTAIN reste possible avec le radar si la carte d'eau est ambiguë (seuil inchangé).
 
 ## Quelles bandes séparent l'eau des nuages et de leurs ombres ? (notebook 09)
 
@@ -255,7 +290,7 @@ optique de secours sinon. Images de pays jamais vus à l'entraînement :
 | Spain_7370579 | fusion | ALERTE | 30,6 % | ALERTE, 32,1 % | 26,7 % | 1 % | juste |
 | Ghana_313799 | fusion | **ALERTE** | 3,1 % | PAS D'ALERTE, 2,6 % | 6,1 % | 1 % | **juste** (manquée sans radar) |
 | Ghana_866994 | fusion | ALERTE | 4,8 % | ALERTE, 3,6 % | 40,0 % | 52 % | juste, eau sous-estimée |
-| Ghana_26376 | fusion | INCERTAIN | 0,0 % | INCERTAIN | non annotée | 81 % | juste : image presque entièrement nuageuse |
+| Ghana_26376 | fusion | PAS D'ALERTE | 0,0 % | INCERTAIN | non annotée | 81 % | le radar répond sous 81 % de nuages ; sans lui, INCERTAIN |
 
 Anomalies simulées sur Bolivia_360519 : capteur saturé, bandes infrarouges perdues et bruit →
 INCONNU ; radar coupé → bascule sur le modèle optique, décision inchangée (PAS D'ALERTE).
@@ -279,7 +314,7 @@ du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent
 | Date | Modèle | Zone entière | Eau anormale détectée | Vignettes de 5 km (ALERTE / INCERTAIN / PAS D'ALERTE) |
 |---|---|---|---|---|
 | 23 avril 2023 (avant) | optique seul | PAS D'ALERTE | 0,7 % | 1 / 2 / 13 |
-| 23 avril 2023 (avant) | **fusion optique + radar** | PAS D'ALERTE | 0,7 % | **0** / 2 / 14 |
+| 23 avril 2023 (avant) | **fusion optique + radar** | PAS D'ALERTE | 0,7 % | **0** / **0** / 16 |
 | 23 mai 2023 (après) | optique seul | **ALERTE** | 8,9 % | 7 / 0 / 9 |
 | 23 mai 2023 (après) | **fusion optique + radar** | **ALERTE** | 8,5 % | 7 / 0 / 9 |
 
@@ -291,7 +326,9 @@ du nord sont noires (l'eau calme renvoie très peu de signal) ; elles n'existent
 - Avant les crues, la vignette passée à tort en ALERTE par le modèle optique (ombres de nuages,
   voir l'analyse des échecs) **repasse en PAS D'ALERTE avec le radar**. Réserve : l'image radar
   d'avant a 5 jours d'écart avec l'image optique.
-- Les 2 vignettes très nuageuses d'avant restent INCERTAIN.
+- Les 2 vignettes très nuageuses d'avant, INCERTAIN avec l'optique seul, reçoivent une réponse avec
+  le radar (PAS D'ALERTE) depuis la suppression du seuil de nuages (notebook 13). Avec un seuil
+  de 30 %, elles restaient INCERTAIN.
 - Le score d'inconnu reste bas : malgré le changement de pays, d'année et de traitement, les
   images restent dans le domaine connu des modèles.
 - Limite du traitement radar : pas de correction du relief (valable en plaine, pas en montagne).
@@ -370,3 +407,4 @@ modérée-forte 11 628, forte 23 302.
 - [x] Étude bande par bande : RGB, infrarouge, radar (notebook 09)
 - [x] Modèle fusionné allégé, 6 bandes optiques + radar (notebook 12) : aussi bon en IoU, non retenu (1 inondation manquée en validation)
 - [x] Extension aux feux de forêt : sévérité, décision et détourage (notebook 11)
+- [x] Derniers réglages sans réentraîner (notebook 13) : symétries non retenues, seuil de nuages supprimé quand le radar est utilisé
