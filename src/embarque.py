@@ -82,6 +82,28 @@ def probabilite_eau(sess, s2):
     return 1.0 / (1.0 + np.exp(-np.clip(logits, -30, 30)))
 
 
+def transformations(n=4):
+    """Symétries de l'image utilisées pour la moyenne à l'inférence : (aller, retour) sur un
+    tableau (..., H, W). n = 1 (aucune), 2, 4 (retournements) ou 8 (avec transpositions, images
+    carrées seulement)."""
+    t = [(lambda a: a, lambda a: a),
+         (lambda a: a[..., :, ::-1], lambda a: a[..., :, ::-1]),
+         (lambda a: a[..., ::-1, :], lambda a: a[..., ::-1, :]),
+         (lambda a: a[..., ::-1, ::-1], lambda a: a[..., ::-1, ::-1])]
+    tr = lambda a: np.swapaxes(a, -1, -2)
+    t += [(lambda a, f=f: tr(f(a)), lambda a, g=g: g(tr(a))) for f, g in t]
+    return t[:n]
+
+
+def probabilite_eau_moyenne(sess, s2, n=4):
+    """Probabilité d'eau moyennée sur n symétries de l'image (« test-time augmentation »).
+    Coûte n passes du réseau ; réduit les erreurs isolées du modèle."""
+    p = np.zeros(s2.shape[-2:], np.float64)
+    for aller, retour in transformations(n):
+        p += retour(probabilite_eau(sess, np.ascontiguousarray(aller(s2))))
+    return (p / n).astype(np.float32)
+
+
 def predire(sess, images, indices):
     return {k: probabilite_eau(sess, images[k]).astype(np.float16) for k in indices}
 
