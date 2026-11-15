@@ -1,0 +1,16 @@
+,modèle retenu (notebook 10),après réglages
+ambiguite,0.0531,0.0531
+f1_test,0.906,0.906
+f1_validation,0.923,0.923
+fausses_alertes_test,0.086,0.068
+fausses_alertes_validation,0.079,0.058
+incertain_test,15.0,0
+incertain_validation,14.0,0
+iou_test,0.8162,0.8162
+iou_validation,0.8573,0.8573
+manquees_test,0.0,0
+manquees_validation,0.0,0
+ms_1_coeur,947.0,947
+seuil_nuages,0.3,aucun
+symetries,,1
+t_alerte,0.03,0.03

@@ -1,0 +1,6 @@
+seuil_nuages,symetries,t_alerte,ambiguite,ms_1_coeur,iou_validation,incertain_validation,f1_validation,fausses_alertes_validation,manquees_validation,iou_test,incertain_test,f1_test,fausses_alertes_test,manquees_test
+0.3,1,0.03,0.0531,947,0.8573,14,0.923,0.079,0,0.8162,15,0.906,0.086,0
+0.4,1,0.03,0.0531,947,0.8573,14,0.923,0.079,0,0.8162,11,0.906,0.081,0
+0.5,1,0.03,0.0531,947,0.8573,9,0.923,0.07,0,0.8162,6,0.906,0.075,0
+0.7,1,0.03,0.0531,947,0.8573,3,0.923,0.061,0,0.8162,4,0.906,0.072,0
+aucun,1,0.03,0.0531,947,0.8573,0,0.923,0.058,0,0.8162,0,0.906,0.068,0

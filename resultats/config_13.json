@@ -1,0 +1,9 @@
+{
+ "symetries": 1,
+ "seuils_decision": {
+  "alerte": 0.03,
+  "nuages": 1.01,
+  "ambiguite": 0.0531,
+  "inconnu": 5.876
+ }
+}
