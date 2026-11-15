@@ -122,7 +122,8 @@ def resume(res):
         f"Décision : {res['decision']} : {res['explication']}",
         f"Modèle : {res.get('modele', 'optique seul')}",
         f"Eau anormale détectée : {res['part_eau']:.1%} de l'image (alerte à partir de {s['alerte']:.0%})",
-        f"Nuages estimés : {res['nuages']:.0%} (incertain à partir de {s['nuages']:.0%})",
+        (f"Nuages estimés : {res['nuages']:.0%} (incertain à partir de {s['nuages']:.0%})" if s["nuages"] <= 1
+         else f"Nuages estimés : {res['nuages']:.0%} (pas de seuil : le radar voit à travers les nuages)"),
         f"Ambiguïté de la carte d'eau : {res['ambiguite']:.1%} (incertain à partir de {s['ambiguite']:.1%})",
         f"Score d'inconnu : {res['score_inconnu']:.1f} (inconnu au-delà de {s['inconnu']:.1f})",
         f"Temps de calcul : {res['temps_ms']:.0f} ms (réseau {res['temps_reseau_ms']:.0f} ms)",
